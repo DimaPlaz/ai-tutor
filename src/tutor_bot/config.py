@@ -1,6 +1,6 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import SecretStr, field_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -8,6 +8,12 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     tg_bot_token: SecretStr
+    anthropic_api_key: SecretStr | None = None
+    # Тестовый режим: заготовленные ответы вместо Claude API, ключ не нужен
+    llm_fake: bool = False
+    llm_model: str = "claude-opus-5-5"
+    llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
+    llm_max_tokens: int = 16000
     database_url: str = "postgresql+asyncpg://tutor:tutor@localhost:5432/tutor"
     redis_url: str = "redis://localhost:6379/0"
     # NoDecode: принимаем "1,2,3" из .env, а не только JSON-список
@@ -20,6 +26,12 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [int(part) for part in value.split(",") if part.strip()]
         return value
+
+    @model_validator(mode="after")
+    def _require_api_key(self) -> Settings:
+        if not self.llm_fake and self.anthropic_api_key is None:
+            raise ValueError("ANTHROPIC_API_KEY is required unless LLM_FAKE=true")
+        return self
 
 
 def get_settings() -> Settings:

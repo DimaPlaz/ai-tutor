@@ -82,6 +82,38 @@ TEXTS: dict[str, dict[str, str]] = {
         "ru": "Готово, теперь отвечаю по-русски 🇷🇺",
         "en": "Done, I'll answer in English now 🇬🇧",
     },
+    "free_left": {
+        "ru": "В этом месяце осталось бесплатных решений: {left} из {total}.",
+        "en": "Free solutions left this month: {left} of {total}.",
+    },
+    "free_left_short": {
+        "ru": "Осталось бесплатных решений в этом месяце: {left}",
+        "en": "Free solutions left this month: {left}",
+    },
+    "paywall_free": {
+        "ru": (
+            "Бесплатные решения на этот месяц закончились 😔\n\n"
+            "С подпиской можно решать задачи без ограничений. "
+            "А новые бесплатные решения появятся 1-го числа."
+        ),
+        "en": (
+            "You've used up this month's free solutions 😔\n\n"
+            "With a subscription you can solve problems without limits. "
+            "New free solutions arrive on the 1st of the month."
+        ),
+    },
+    "paywall_paid_cap": {
+        "ru": "Ты достиг месячного лимита подписки. Он обновится 1-го числа 🙏",
+        "en": "You've reached this month's subscription limit. It resets on the 1st 🙏",
+    },
+    "busy": {
+        "ru": "Подожди, я ещё решаю предыдущую задачу ⏳",
+        "en": "Hold on, I'm still working on the previous problem ⏳",
+    },
+    "rate_limited": {
+        "ru": "Слишком много запросов подряд. Подожди минутку 🙏",
+        "en": "Too many requests in a row. Please wait a minute 🙏",
+    },
     "cmd_start": {"ru": "Начать", "en": "Start"},
     "cmd_lang": {"ru": "Язык / Language", "en": "Language / Язык"},
 }

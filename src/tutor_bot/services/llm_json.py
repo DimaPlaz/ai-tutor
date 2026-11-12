@@ -34,7 +34,7 @@ async def call_json[T: BaseModel](
         payload = payload_type.model_validate_json(response.text)
     except ValidationError as e:
         logger.error("LLM returned invalid %s JSON request_id=%s", kind, response.request_id)
-        raise LLMUnavailableError(f"invalid {kind} payload") from e
+        raise LLMUnavailableError(f"invalid {kind} payload", response.usages) from e
 
     cost = _safe_cost(response.usages)
     logger.info(
@@ -56,3 +56,10 @@ def _safe_cost(usages: list[TokenUsage]) -> Decimal | None:
     except UnknownModelPriceError as e:
         logger.warning("No price for model %s, cost not calculated", e.args[0])
         return None
+
+
+def call_from_usages(usages: list[TokenUsage]) -> LLMCall | None:
+    """Учёт вызова, который закончился ошибкой, но был оплачен (токены есть)."""
+    if not usages:
+        return None
+    return LLMCall(model=usages[-1].model, usages=usages, cost_usd=_safe_cost(usages))

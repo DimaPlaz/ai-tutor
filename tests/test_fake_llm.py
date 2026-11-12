@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 
 from tutor_bot.bot.formatting import pack_messages, render_solution
@@ -23,7 +25,7 @@ async def test_default_solution_in_user_language(solver: Solver) -> None:
     assert ru.status is SolutionStatus.OK
     assert ru.problem.startswith("Решить")
     assert en.problem.startswith("Solve")
-    assert ru.call.cost_usd == 0
+    assert ru.call.cost_usd == Decimal("0.038")  # правдоподобная цена для проверки лимитов
 
 
 @pytest.mark.parametrize("status", ["unreadable", "not_a_problem"])

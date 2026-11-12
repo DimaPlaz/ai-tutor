@@ -19,7 +19,14 @@ FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
 class LLMError(Exception):
-    """Базовая ошибка вызова LLM: пользователю — понятное сообщение, лимит не списываем."""
+    """Базовая ошибка вызова LLM: пользователю — понятное сообщение, лимит не списываем.
+
+    `usages` — токены, которые API всё же насчитал (отказ, обрыв): они идут в бюджет.
+    """
+
+    def __init__(self, message: str = "", usages: list[TokenUsage] | None = None) -> None:
+        super().__init__(message)
+        self.usages = usages or []
 
 
 class LLMRefusalError(LLMError):
@@ -113,15 +120,15 @@ class LLMClient:
         if message.stop_reason == "refusal":
             category = message.stop_details.category if message.stop_details else None
             logger.warning("LLM refusal category=%s request_id=%s", category, request_id)
-            raise LLMRefusalError(usages)
+            raise LLMRefusalError("refusal", usages)
         if message.stop_reason == "max_tokens":
             logger.warning("LLM hit max_tokens request_id=%s", request_id)
-            raise LLMTruncatedError(usages)
+            raise LLMTruncatedError("max_tokens", usages)
 
         # При fallback перед ответом идёт блок "fallback"; JSON — в последнем текстовом блоке
         texts = [block.text for block in message.content if block.type == "text"]
         if not texts:
-            raise LLMUnavailableError("no text block in response")
+            raise LLMUnavailableError("no text block in response", usages)
         return LLMResponse(
             text=texts[-1], model=message.model, usages=usages, request_id=request_id
         )

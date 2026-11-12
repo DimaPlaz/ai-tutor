@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Annotated, Literal
 
 from pydantic import SecretStr, field_validator, model_validator
@@ -14,6 +15,11 @@ class Settings(BaseSettings):
     llm_model: str = "claude-opus-5-5"
     llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
     llm_max_tokens: int = 16000
+    free_solutions_per_month: int = 15
+    # Скрытые потолки расходов на LLM за календарный месяц (UTC), в $
+    free_budget_usd: Decimal = Decimal("0.90")
+    paid_budget_usd: Decimal = Decimal("10")
+    rate_limit_per_minute: int = 6
     database_url: str = "postgresql+asyncpg://tutor:tutor@localhost:5432/tutor"
     redis_url: str = "redis://localhost:6379/0"
     # NoDecode: принимаем "1,2,3" из .env, а не только JSON-список

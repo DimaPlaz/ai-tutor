@@ -6,6 +6,11 @@ from aiogram.types import TelegramObject
 from aiogram.types import User as TgUser
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from tutor_bot.services.assistant import Assistant
+from tutor_bot.services.limits import Limits, LimitsConfig
+from tutor_bot.services.solver import Solver
+from tutor_bot.services.throttle import Throttle
+from tutor_bot.services.tutor import Tutor
 from tutor_bot.services.users import register_user
 
 
@@ -44,4 +49,26 @@ class UserMiddleware(BaseMiddleware):
         data["user"] = await register_user(
             data["session"], tg_user.id, tg_user.username, tg_user.language_code
         )
+        return await handler(event, data)
+
+
+class AssistantMiddleware(BaseMiddleware):
+    """Собирает Assistant на сессии БД текущего апдейта и передаёт его как `assistant`."""
+
+    def __init__(
+        self, solver: Solver, tutor: Tutor, throttle: Throttle, limits_config: LimitsConfig
+    ) -> None:
+        self._solver = solver
+        self._tutor = tutor
+        self._throttle = throttle
+        self._limits_config = limits_config
+
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: dict[str, Any],
+    ) -> Any:
+        limits = Limits(data["session"], self._limits_config)
+        data["assistant"] = Assistant(limits, self._solver, self._tutor, self._throttle)
         return await handler(event, data)

@@ -68,7 +68,7 @@ class Solver:
         )
         if payload.status is SolutionStatus.OK and not (payload.steps and payload.answer):
             logger.error("LLM returned empty solution")
-            raise LLMUnavailableError("empty solution")
+            raise LLMUnavailableError("empty solution", call.usages)
         return Solution(
             status=payload.status,
             problem=payload.problem,

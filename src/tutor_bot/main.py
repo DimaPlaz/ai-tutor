@@ -7,8 +7,9 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.types import BotCommand
+from redis.asyncio import Redis
 
-from tutor_bot.bot.middlewares import DbSessionMiddleware, UserMiddleware
+from tutor_bot.bot.middlewares import AssistantMiddleware, DbSessionMiddleware, UserMiddleware
 from tutor_bot.bot.routers import lang, solve, start, task
 from tutor_bot.bot.task_store import TASK_TTL
 from tutor_bot.bot.texts import t
@@ -17,7 +18,9 @@ from tutor_bot.db.session import create_engine, create_session_factory
 from tutor_bot.llm.client import JsonCompleter, LLMClient
 from tutor_bot.llm.fake import FakeLLMClient
 from tutor_bot.logging import setup_logging
+from tutor_bot.services.limits import LimitsConfig
 from tutor_bot.services.solver import Solver
+from tutor_bot.services.throttle import Throttle
 from tutor_bot.services.tutor import Tutor
 
 logger = logging.getLogger(__name__)
@@ -28,7 +31,8 @@ async def main() -> None:
     setup_logging(settings.log_level)
 
     engine = create_engine(settings.database_url)
-    storage = RedisStorage.from_url(settings.redis_url, state_ttl=TASK_TTL, data_ttl=TASK_TTL)
+    redis = Redis.from_url(settings.redis_url)
+    storage = RedisStorage(redis, state_ttl=TASK_TTL, data_ttl=TASK_TTL)
     bot = Bot(
         token=settings.tg_bot_token.get_secret_value(),
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
@@ -51,9 +55,17 @@ async def main() -> None:
             max_tokens=settings.llm_max_tokens,
         )
 
-    dp = Dispatcher(storage=storage, solver=Solver(llm), tutor=Tutor(llm))
+    limits_config = LimitsConfig(
+        free_solutions=settings.free_solutions_per_month,
+        free_budget_usd=settings.free_budget_usd,
+        paid_budget_usd=settings.paid_budget_usd,
+    )
+    throttle = Throttle(redis, per_minute=settings.rate_limit_per_minute)
+
+    dp = Dispatcher(storage=storage, free_total=settings.free_solutions_per_month)
     dp.update.middleware(DbSessionMiddleware(create_session_factory(engine)))
     dp.update.middleware(UserMiddleware())
+    dp.update.middleware(AssistantMiddleware(Solver(llm), Tutor(llm), throttle, limits_config))
     # Порядок важен: команды и ожидание ответа раньше общего обработчика текста
     dp.include_routers(start.router, lang.router, task.router, solve.router)
 
@@ -66,7 +78,7 @@ async def main() -> None:
         await bot.session.close()
         if anthropic_client is not None:
             await anthropic_client.close()
-        await storage.close()
+        await storage.close()  # закрывает и общий клиент Redis
         await engine.dispose()
 
 

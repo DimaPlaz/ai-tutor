@@ -17,9 +17,15 @@ from tutor_bot.llm.client import (
     LLMTruncatedError,
     LLMUnavailableError,
 )
+from tutor_bot.llm.pricing import TokenUsage
 from tutor_bot.llm.prompts import followup_system_prompt, solve_system_prompt
 
 FAKE_MODEL = "fake"
+
+# Правдоподобный расход как у Opus 5.5 (~$0.04 решение, ~$0.014 уточнение),
+# чтобы лимиты по бюджету можно было проверить без ключа
+_SOLVE_USAGE = TokenUsage("claude-opus-5-5", input_tokens=2_000, output_tokens=1_500)
+_FOLLOWUP_USAGE = TokenUsage("claude-opus-5-5", input_tokens=1_500, output_tokens=400)
 
 _SOLUTIONS = {
     "ru": {
@@ -104,9 +110,9 @@ class FakeLLMClient:
         command = student_input.lower()
 
         if "fake:refusal" in command:
-            raise LLMRefusalError([])
+            raise LLMRefusalError("fake refusal")
         if "fake:max_tokens" in command:
-            raise LLMTruncatedError([])
+            raise LLMTruncatedError("fake max_tokens", [_FOLLOWUP_USAGE])
         if "fake:error" in command:
             raise LLMUnavailableError("fake error")
 
@@ -130,7 +136,7 @@ class FakeLLMClient:
         return LLMResponse(
             text=json.dumps(payload, ensure_ascii=False),
             model=FAKE_MODEL,
-            usages=[],
+            usages=[_SOLVE_USAGE if "status" in fields else _FOLLOWUP_USAGE],
             request_id=None,
         )
 

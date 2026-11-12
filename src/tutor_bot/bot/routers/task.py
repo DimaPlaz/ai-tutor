@@ -1,19 +1,15 @@
-from collections.abc import Awaitable, Callable
-
 from aiogram import Bot, F, Router
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-from aiogram.utils.chat_action import ChatActionSender
 
 from tutor_bot.bot.keyboards import CHECK, NEW, SIMPLER, TaskAction
-from tutor_bot.bot.replies import llm_error_key, send_followup
+from tutor_bot.bot.replies import run_guarded, send_followup
 from tutor_bot.bot.states import TaskStates
 from tutor_bot.bot.task_store import clear_task, load_task, save_task
 from tutor_bot.bot.texts import t
 from tutor_bot.db.models import User
-from tutor_bot.llm.client import LLMError
-from tutor_bot.services.tutor import FollowUpLimitError, FollowUpReply, Tutor
+from tutor_bot.services.assistant import Assistant
 
 router = Router(name="task")
 
@@ -25,7 +21,7 @@ async def on_task_action(
     bot: Bot,
     user: User,
     state: FSMContext,
-    tutor: Tutor,
+    assistant: Assistant,
 ) -> None:
     lang = user.language
     message = callback.message
@@ -44,12 +40,15 @@ async def on_task_action(
         await state.set_state(TaskStates.waiting_answer)
         await message.answer(t("ask_answer", lang))
     elif callback_data.action == SIMPLER:
-        await _run_followup(message, bot, lang, state, lambda: tutor.explain_simpler(lang, task))
+        reply = await run_guarded(message, bot, lang, lambda: assistant.explain_simpler(user, task))
+        if reply is not None:
+            await save_task(state, reply.task)
+            await send_followup(message, reply, lang)
 
 
 @router.message(StateFilter(TaskStates.waiting_answer), F.text & ~F.text.startswith("/"))
 async def on_student_answer(
-    message: Message, bot: Bot, user: User, state: FSMContext, tutor: Tutor
+    message: Message, bot: Bot, user: User, state: FSMContext, assistant: Assistant
 ) -> None:
     assert message.text is not None
     answer = message.text
@@ -59,24 +58,9 @@ async def on_student_answer(
     if task is None:
         await message.answer(t("task_closed", lang))
         return
-    await _run_followup(message, bot, lang, state, lambda: tutor.check_answer(lang, task, answer))
-
-
-async def _run_followup(
-    message: Message,
-    bot: Bot,
-    lang: str,
-    state: FSMContext,
-    ask: Callable[[], Awaitable[FollowUpReply]],
-) -> None:
-    try:
-        async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
-            reply = await ask()
-    except FollowUpLimitError:
-        await message.answer(t("followups_over", lang))
-        return
-    except LLMError as e:
-        await message.answer(t(llm_error_key(e), lang))
-        return
-    await save_task(state, reply.task)
-    await send_followup(message, reply, lang)
+    reply = await run_guarded(
+        message, bot, lang, lambda: assistant.check_answer(user, task, answer)
+    )
+    if reply is not None:
+        await save_task(state, reply.task)
+        await send_followup(message, reply, lang)

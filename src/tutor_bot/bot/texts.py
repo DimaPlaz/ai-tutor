@@ -50,6 +50,40 @@ TEXTS: dict[str, dict[str, str]] = {
         "ru": "Что-то пошло не так, не смог решить задачу. Попробуй ещё раз через минуту 🙏",
         "en": "Something went wrong and I couldn't solve it. Please try again in a minute 🙏",
     },
+    "btn_simpler": {"ru": "🤔 Не понял, объясни проще", "en": "🤔 I don't get it, explain simpler"},
+    "btn_check": {"ru": "✍️ Проверь мой ответ", "en": "✍️ Check my answer"},
+    "btn_new": {"ru": "📸 Новая задача", "en": "📸 New problem"},
+    "ask_answer": {
+        "ru": "Напиши свой ответ, я проверю 👇",
+        "en": "Type your answer and I'll check it 👇",
+    },
+    "verdict_correct": {"ru": "✅ Верно!", "en": "✅ Correct!"},
+    "verdict_partial": {"ru": "🟡 Почти верно", "en": "🟡 Almost there"},
+    "verdict_incorrect": {"ru": "❌ Пока неверно", "en": "❌ Not quite yet"},
+    "followups_over": {
+        "ru": (
+            "По этой задаче я уже ответил на 5 уточнений — это максимум. Пришли новую задачу 📸"
+        ),
+        "en": (
+            "I've already answered 5 follow-ups on this problem — that's the maximum. "
+            "Send a new problem 📸"
+        ),
+    },
+    "task_closed": {
+        "ru": "Эта задача уже закрыта. Пришли новую 🙂",
+        "en": "This problem is already closed. Send a new one 🙂",
+    },
+    "new_task_prompt": {
+        "ru": "Жду новую задачу: пришли фото или напиши её текстом 📸",
+        "en": "Ready for a new problem: send a photo or type it in 📸",
+    },
+    "lang_choose": {"ru": "Выбери язык:", "en": "Choose a language:"},
+    "lang_set": {
+        "ru": "Готово, теперь отвечаю по-русски 🇷🇺",
+        "en": "Done, I'll answer in English now 🇬🇧",
+    },
+    "cmd_start": {"ru": "Начать", "en": "Start"},
+    "cmd_lang": {"ru": "Язык / Language", "en": "Language / Язык"},
 }
 
 

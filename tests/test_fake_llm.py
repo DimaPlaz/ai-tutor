@@ -23,7 +23,7 @@ async def test_default_solution_in_user_language(solver: Solver) -> None:
     assert ru.status is SolutionStatus.OK
     assert ru.problem.startswith("Решить")
     assert en.problem.startswith("Solve")
-    assert ru.cost_usd == 0
+    assert ru.call.cost_usd == 0
 
 
 @pytest.mark.parametrize("status", ["unreadable", "not_a_problem"])

@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from tutor_bot.bot.formatting import TELEGRAM_MESSAGE_LIMIT, pack_messages, render_solution
+from tutor_bot.services.llm_json import LLMCall
 from tutor_bot.services.solver import Solution, SolutionStatus
 
 
@@ -10,9 +11,7 @@ def _solution(steps: list[str], problem: str = "2 + 2 = ?", answer: str = "4") -
         problem=problem,
         steps=steps,
         answer=answer,
-        model="claude-opus-5-5",
-        usages=[],
-        cost_usd=Decimal(0),
+        call=LLMCall(model="claude-opus-5-5", usages=[], cost_usd=Decimal(0)),
     )
 
 

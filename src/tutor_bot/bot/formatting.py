@@ -2,6 +2,7 @@ from html import escape
 
 from tutor_bot.bot.texts import t
 from tutor_bot.services.solver import Solution
+from tutor_bot.services.tutor import Verdict
 
 TELEGRAM_MESSAGE_LIMIT = 4096
 
@@ -61,3 +62,17 @@ def _safe_hard_cut(text: str, limit: int) -> int:
     if amp > 0 and text.find(";", amp, limit) == -1:
         return amp
     return limit
+
+
+VERDICT_KEYS = {
+    Verdict.CORRECT: "verdict_correct",
+    Verdict.PARTIAL: "verdict_partial",
+    Verdict.INCORRECT: "verdict_incorrect",
+}
+
+
+def render_followup(text: str, lang: str, verdict: Verdict | None = None) -> list[str]:
+    blocks = [f"<b>{t(VERDICT_KEYS[verdict], lang)}</b>"] if verdict else []
+    # Абзацы — отдельные блоки, чтобы длинный ответ резался по ним
+    blocks += [escape(part, quote=False) for part in text.split("\n\n") if part.strip()]
+    return blocks

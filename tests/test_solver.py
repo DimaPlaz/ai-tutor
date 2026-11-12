@@ -32,7 +32,7 @@ async def test_solve_ok_with_cost() -> None:
     assert solution.status is SolutionStatus.OK
     assert solution.steps == ["Складываем"]
     assert solution.answer == "4"
-    assert solution.cost_usd == Decimal("0.038")
+    assert solution.call.cost_usd == Decimal("0.038")
 
 
 @pytest.mark.parametrize("status", ["unreadable", "not_a_problem"])
@@ -70,7 +70,7 @@ async def test_ok_without_answer_is_unavailable() -> None:
 async def test_unknown_model_price_does_not_fail() -> None:
     solution = await make_solver(OK_PAYLOAD, model="claude-new").solve("ru", text="2 + 2")
 
-    assert solution.cost_usd is None
+    assert solution.call.cost_usd is None
 
 
 async def test_empty_input_rejected() -> None:

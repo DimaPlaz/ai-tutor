@@ -17,7 +17,7 @@ def detect_language(language_code: str | None) -> str:
 async def register_user(
     session: AsyncSession, user_id: int, username: str | None, language_code: str | None
 ) -> User:
-    """Создаёт пользователя при первом /start.
+    """Создаёт пользователя при первом обращении, обновляет username.
 
     Язык существующего пользователя не трогаем: его меняют через /lang.
     """
@@ -31,3 +31,10 @@ async def register_user(
         user.username = username
     await session.commit()
     return user
+
+
+async def set_language(session: AsyncSession, user: User, language: str) -> None:
+    if language not in SUPPORTED_LANGUAGES:
+        raise ValueError(f"unsupported language: {language}")
+    user.language = language
+    await session.commit()

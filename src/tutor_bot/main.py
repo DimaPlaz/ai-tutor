@@ -6,15 +6,19 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
+from aiogram.types import BotCommand
 
-from tutor_bot.bot.middlewares import DbSessionMiddleware
-from tutor_bot.bot.routers import solve, start
+from tutor_bot.bot.middlewares import DbSessionMiddleware, UserMiddleware
+from tutor_bot.bot.routers import lang, solve, start, task
+from tutor_bot.bot.task_store import TASK_TTL
+from tutor_bot.bot.texts import t
 from tutor_bot.config import get_settings
 from tutor_bot.db.session import create_engine, create_session_factory
 from tutor_bot.llm.client import JsonCompleter, LLMClient
 from tutor_bot.llm.fake import FakeLLMClient
 from tutor_bot.logging import setup_logging
 from tutor_bot.services.solver import Solver
+from tutor_bot.services.tutor import Tutor
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +28,7 @@ async def main() -> None:
     setup_logging(settings.log_level)
 
     engine = create_engine(settings.database_url)
-    storage = RedisStorage.from_url(settings.redis_url)
+    storage = RedisStorage.from_url(settings.redis_url, state_ttl=TASK_TTL, data_ttl=TASK_TTL)
     bot = Bot(
         token=settings.tg_bot_token.get_secret_value(),
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
@@ -47,10 +51,13 @@ async def main() -> None:
             max_tokens=settings.llm_max_tokens,
         )
 
-    dp = Dispatcher(storage=storage, solver=Solver(llm))
+    dp = Dispatcher(storage=storage, solver=Solver(llm), tutor=Tutor(llm))
     dp.update.middleware(DbSessionMiddleware(create_session_factory(engine)))
-    dp.include_router(start.router)
-    dp.include_router(solve.router)
+    dp.update.middleware(UserMiddleware())
+    # Порядок важен: команды и ожидание ответа раньше общего обработчика текста
+    dp.include_routers(start.router, lang.router, task.router, solve.router)
+
+    await set_commands(bot)
 
     logger.info("Bot started")
     try:
@@ -61,6 +68,17 @@ async def main() -> None:
             await anthropic_client.close()
         await storage.close()
         await engine.dispose()
+
+
+async def set_commands(bot: Bot) -> None:
+    for language in ("ru", "en"):
+        commands = [
+            BotCommand(command="start", description=t("cmd_start", language)),
+            BotCommand(command="lang", description=t("cmd_lang", language)),
+        ]
+        # Английский — меню по умолчанию для всех остальных языков
+        code = None if language == "en" else language
+        await bot.set_my_commands(commands, language_code=code)
 
 
 if __name__ == "__main__":

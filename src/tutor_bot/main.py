@@ -7,12 +7,13 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.telegram import PRODUCTION, TEST
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramAPIError
 from aiogram.fsm.storage.redis import RedisStorage
-from aiogram.types import BotCommand
+from aiogram.types import BotCommand, BotCommandScopeChat
 from redis.asyncio import Redis
 
 from tutor_bot.bot.middlewares import DbSessionMiddleware, ServicesMiddleware, UserMiddleware
-from tutor_bot.bot.routers import lang, payments, solve, start, task
+from tutor_bot.bot.routers import admin, lang, payments, solve, start, task
 from tutor_bot.bot.task_store import TASK_TTL
 from tutor_bot.bot.texts import t
 from tutor_bot.config import get_settings
@@ -71,6 +72,7 @@ async def main() -> None:
         storage=storage,
         free_total=settings.free_solutions_per_month,
         support_contact=settings.support_contact,
+        admin_ids=settings.admin_ids,
     )
     dp.update.middleware(DbSessionMiddleware(create_session_factory(engine)))
     dp.update.middleware(UserMiddleware())
@@ -84,9 +86,11 @@ async def main() -> None:
         )
     )
     # Порядок важен: команды и ожидание ответа раньше общего обработчика текста
-    dp.include_routers(start.router, lang.router, payments.router, task.router, solve.router)
+    dp.include_routers(
+        admin.router, start.router, lang.router, payments.router, task.router, solve.router
+    )
 
-    await set_commands(bot)
+    await set_commands(bot, settings.admin_ids)
 
     logger.info("Bot started")
     try:
@@ -99,18 +103,41 @@ async def main() -> None:
         await engine.dispose()
 
 
-async def set_commands(bot: Bot) -> None:
+def user_commands(language: str) -> list[BotCommand]:
+    return [
+        BotCommand(command="start", description=t("cmd_start", language)),
+        BotCommand(command="lang", description=t("cmd_lang", language)),
+        BotCommand(command="subscription", description=t("cmd_subscription", language)),
+        BotCommand(command="terms", description=t("cmd_terms", language)),
+        BotCommand(command="paysupport", description=t("cmd_paysupport", language)),
+    ]
+
+
+def admin_commands(language: str) -> list[BotCommand]:
+    return [
+        *user_commands(language),
+        BotCommand(command="stats", description=t("cmd_stats", language)),
+        BotCommand(command="grant", description=t("cmd_grant", language)),
+        BotCommand(command="refund", description=t("cmd_refund", language)),
+    ]
+
+
+async def set_commands(bot: Bot, admin_ids: list[int]) -> None:
     for language in ("ru", "en"):
-        commands = [
-            BotCommand(command="start", description=t("cmd_start", language)),
-            BotCommand(command="lang", description=t("cmd_lang", language)),
-            BotCommand(command="subscription", description=t("cmd_subscription", language)),
-            BotCommand(command="terms", description=t("cmd_terms", language)),
-            BotCommand(command="paysupport", description=t("cmd_paysupport", language)),
-        ]
         # Английский — меню по умолчанию для всех остальных языков
         code = None if language == "en" else language
-        await bot.set_my_commands(commands, language_code=code)
+        await bot.set_my_commands(user_commands(language), language_code=code)
+        # Админ-команды видны только в чатах админов
+        for admin_id in admin_ids:
+            try:
+                await bot.set_my_commands(
+                    admin_commands(language),
+                    scope=BotCommandScopeChat(chat_id=admin_id),
+                    language_code=code,
+                )
+            except TelegramAPIError:
+                # Например, админ ещё не открывал чат с ботом
+                logger.warning("Failed to set admin commands for %s", admin_id)
 
 
 if __name__ == "__main__":

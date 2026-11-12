@@ -2,9 +2,10 @@
 
 import logging
 import secrets
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
@@ -19,6 +20,21 @@ CURRENCY = "XTR"
 # Telegram принимает для подписок только период 30 дней
 SUBSCRIPTION_PERIOD = timedelta(days=30)
 _PAYLOAD_PREFIX = "sub"
+MAX_GRANT_DAYS = 3650
+
+
+class RefundOutcome(StrEnum):
+    REFUNDED = "refunded"
+    ALREADY_REFUNDED = "already_refunded"
+    NOT_FOUND = "not_found"
+
+
+class ChargeAlreadyRefundedError(Exception):
+    """Telegram сообщил, что платёж уже возвращён (например, вернули в обход бота)."""
+
+
+# Вызов refundStarPayment: (user_id, charge_id). Бросает ChargeAlreadyRefundedError
+SendRefund = Callable[[int, str], Awaitable[object]]
 
 
 def make_payload(user_id: int) -> str:
@@ -122,6 +138,58 @@ class Subscriptions:
             .order_by(Payment.created_at.desc(), Payment.id.desc())
             .limit(1)
         )
+
+    async def grant(self, user_id: int, days: int) -> User | None:
+        """Выдаёт подписку вручную: продлевает от текущего окончания или от сейчас.
+
+        None, если пользователь ещё не писал боту. Автопродление не трогаем.
+        """
+        if not 1 <= days <= MAX_GRANT_DAYS:
+            raise ValueError(f"days must be in 1..{MAX_GRANT_DAYS}")
+        user = await self._session.get(User, user_id)
+        if user is None:
+            return None
+        now = self._now()
+        start = max(now, user.subscription_until or now)
+        until = start + timedelta(days=days)
+        user.subscription_until = until
+        await self._session.commit()
+        logger.info(
+            "Subscription granted user_id=%s days=%s until=%s", user_id, days, until.isoformat()
+        )
+        return user
+
+    async def refund(self, charge_id: str, send_refund: SendRefund) -> RefundOutcome:
+        """Возвращает Stars за платёж. В БД отмечаем только после ответа Telegram.
+
+        Подписка остаётся до оплаченной даты, автопродление выключается:
+        Telegram отменяет подписку при возврате.
+        """
+        payment = await self._session.scalar(
+            select(Payment).where(Payment.telegram_payment_charge_id == charge_id)
+        )
+        if payment is None:
+            return RefundOutcome.NOT_FOUND
+        if payment.refunded_at is not None:
+            return RefundOutcome.ALREADY_REFUNDED
+        outcome = RefundOutcome.REFUNDED
+        try:
+            await send_refund(payment.user_id, charge_id)
+        except ChargeAlreadyRefundedError:
+            outcome = RefundOutcome.ALREADY_REFUNDED
+        payment.refunded_at = self._now()
+        user = await self._session.get(User, payment.user_id)
+        if user is not None:
+            user.subscription_auto_renew = False
+        await self._session.commit()
+        logger.info(
+            "Payment refunded user_id=%s amount=%s charge=%s outcome=%s",
+            payment.user_id,
+            payment.amount,
+            short_charge_id(charge_id),
+            outcome,
+        )
+        return outcome
 
     async def set_auto_renew(self, user: User, auto_renew: bool) -> None:
         user.subscription_auto_renew = auto_renew

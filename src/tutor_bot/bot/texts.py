@@ -212,6 +212,77 @@ TEXTS: dict[str, dict[str, str]] = {
     "cmd_subscription": {"ru": "Подписка", "en": "Subscription"},
     "cmd_terms": {"ru": "Условия", "en": "Terms"},
     "cmd_paysupport": {"ru": "Поддержка по оплате", "en": "Payment support"},
+    "grant_notice": {
+        "ru": "🎁 Вам выдана подписка до {date}. Решай задачи без ограничений!",
+        "en": "🎁 You've been given a subscription until {date}. Solve problems without limits!",
+    },
+    "admin_stats": {
+        "ru": (
+            "<b>📊 Статистика</b> (UTC)\n\n"
+            "<b>Пользователи:</b> {users_total}, активных за 7 дней: {users_active}\n"
+            "<b>Решения:</b> сегодня {solutions_today}, за месяц {solutions_month}\n"
+            "<b>Уточнения за месяц:</b> {followups_month}\n"
+            "<b>Подписчики:</b> {subscribers} (с автопродлением: {subscribers_auto_renew})\n"
+            "<b>Выручка:</b> за месяц {revenue_month} ⭐, всего {revenue_total} ⭐\n"
+            "<b>Расходы на LLM:</b> сегодня ${cost_today}, за месяц ${cost_month}, "
+            "всего ${cost_total}\n"
+            "<b>На одно решение за месяц:</b> {cost_per_solution}\n\n"
+            "<b>Последние платежи:</b>\n{payments}"
+        ),
+        "en": (
+            "<b>📊 Stats</b> (UTC)\n\n"
+            "<b>Users:</b> {users_total}, active in 7 days: {users_active}\n"
+            "<b>Solutions:</b> today {solutions_today}, this month {solutions_month}\n"
+            "<b>Follow-ups this month:</b> {followups_month}\n"
+            "<b>Subscribers:</b> {subscribers} (auto-renew: {subscribers_auto_renew})\n"
+            "<b>Revenue:</b> this month {revenue_month} ⭐, total {revenue_total} ⭐\n"
+            "<b>LLM costs:</b> today ${cost_today}, this month ${cost_month}, "
+            "total ${cost_total}\n"
+            "<b>Per solution this month:</b> {cost_per_solution}\n\n"
+            "<b>Recent payments:</b>\n{payments}"
+        ),
+    },
+    "admin_no_payments": {"ru": "пока нет", "en": "none yet"},
+    "admin_refunded_mark": {"ru": "возвращён", "en": "refunded"},
+    "admin_grant_usage": {
+        "ru": "Формат: <code>/grant &lt;user_id&gt; &lt;дней&gt;</code>, дней от 1 до {max}.",
+        "en": "Usage: <code>/grant &lt;user_id&gt; &lt;days&gt;</code>, days from 1 to {max}.",
+    },
+    "admin_user_not_found": {
+        "ru": "Пользователь {user_id} не найден: он ещё не писал боту.",
+        "en": "User {user_id} not found: they haven't messaged the bot yet.",
+    },
+    "admin_grant_done": {
+        "ru": "Готово: подписка у {user_id} до {date}.",
+        "en": "Done: {user_id} is subscribed until {date}.",
+    },
+    "admin_grant_not_notified": {
+        "ru": "Уведомить пользователя не удалось (возможно, заблокировал бота).",
+        "en": "Couldn't notify the user (they may have blocked the bot).",
+    },
+    "admin_refund_usage": {
+        "ru": "Формат: <code>/refund &lt;charge_id&gt;</code>. charge_id есть в /stats.",
+        "en": "Usage: <code>/refund &lt;charge_id&gt;</code>. Find charge_id in /stats.",
+    },
+    "admin_refund_done": {
+        "ru": "Stars возвращены. Подписка действует до оплаченной даты, автопродление выключено.",
+        "en": "Stars refunded. The subscription lasts until the paid date, auto-renew is off.",
+    },
+    "admin_refund_already": {
+        "ru": "Этот платёж уже возвращён.",
+        "en": "This payment has already been refunded.",
+    },
+    "admin_refund_not_found": {
+        "ru": "Платёж с таким charge_id не найден.",
+        "en": "No payment with this charge_id.",
+    },
+    "admin_refund_failed": {
+        "ru": "Telegram не выполнил возврат: {error}",
+        "en": "Telegram didn't process the refund: {error}",
+    },
+    "cmd_stats": {"ru": "Статистика", "en": "Stats"},
+    "cmd_grant": {"ru": "Выдать подписку", "en": "Grant subscription"},
+    "cmd_refund": {"ru": "Вернуть Stars", "en": "Refund Stars"},
     "cmd_start": {"ru": "Начать", "en": "Start"},
     "cmd_lang": {"ru": "Язык / Language", "en": "Language / Язык"},
 }

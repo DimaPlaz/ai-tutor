@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tutor_bot.services.assistant import Assistant
 from tutor_bot.services.limits import Limits, LimitsConfig
 from tutor_bot.services.solver import Solver
+from tutor_bot.services.stats import StatsService
 from tutor_bot.services.subscriptions import Subscriptions
 from tutor_bot.services.throttle import Throttle
 from tutor_bot.services.tutor import Tutor
@@ -54,7 +55,10 @@ class UserMiddleware(BaseMiddleware):
 
 
 class ServicesMiddleware(BaseMiddleware):
-    """Собирает сервисы на сессии БД текущего апдейта: `assistant`, `limits`, `subscriptions`."""
+    """Собирает сервисы на сессии БД текущего апдейта.
+
+    `assistant`, `limits`, `subscriptions`, `stats`.
+    """
 
     def __init__(
         self,
@@ -81,4 +85,5 @@ class ServicesMiddleware(BaseMiddleware):
         data["limits"] = limits
         data["assistant"] = Assistant(limits, self._solver, self._tutor, self._throttle)
         data["subscriptions"] = Subscriptions(session, self._price_stars)
+        data["stats"] = StatsService(session)
         return await handler(event, data)

@@ -4,9 +4,9 @@
 
 A Telegram bot that solves school problems from a photo or text and explains every step in plain language. Students get a free monthly allowance; after that they can subscribe with Telegram Stars.
 
-<!-- Demo: replace with a real GIF/screenshots -->
 <p align="center">
-  <img src="docs/demo.gif" alt="Demo: photo of a problem → step-by-step solution" width="320">
+  <img src="docs/demo.gif" alt="Demo: photo of a problem → step-by-step solution → follow-ups" width="320">
+  <br><sub>Demo recording of the chat flow (simulated chat)</sub>
 </p>
 
 ## Features

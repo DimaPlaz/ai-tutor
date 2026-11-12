@@ -219,3 +219,5 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 backups/
+.DS_Store
+docs/*.mp4

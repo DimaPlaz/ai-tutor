@@ -27,7 +27,7 @@ class Assistant:
         self._throttle = throttle
 
     async def solve(self, user: User, text: str | None, image: ImageInput | None) -> SolveResult:
-        await self._limits.check(user, new_solution=True, subscribed=self._subscribed(user))
+        await self._limits.check(user, new_solution=True)
         solution = await self._metered(
             user, "solve", None, lambda: self._solver.solve(user.language, text, image)
         )
@@ -73,11 +73,14 @@ class Assistant:
         await self._record_followup(user, "question", task, result.call)
         return result
 
-    async def remaining_free_solutions(self, user: User) -> int:
+    async def remaining_free_solutions(self, user: User) -> int | None:
+        """None для подписчика: у него нет лимита по числу решений."""
+        if self._limits.is_subscribed(user):
+            return None
         return await self._limits.remaining_free_solutions(user)
 
     async def _check_followup(self, user: User) -> None:
-        await self._limits.check(user, new_solution=False, subscribed=self._subscribed(user))
+        await self._limits.check(user, new_solution=False)
 
     async def _record_followup(
         self, user: User, kind: str, task: TaskContext, call: LLMCall
@@ -101,7 +104,3 @@ class Assistant:
                 task_id = task.task_id if task else None
                 await self._limits.record(user, kind, failed, task_id=task_id, charged=False)
             raise
-
-    def _subscribed(self, user: User) -> bool:
-        # Подписка появится на этапе 5
-        return False

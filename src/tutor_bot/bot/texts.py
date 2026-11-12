@@ -114,6 +114,104 @@ TEXTS: dict[str, dict[str, str]] = {
         "ru": "Слишком много запросов подряд. Подожди минутку 🙏",
         "en": "Too many requests in a row. Please wait a minute 🙏",
     },
+    "btn_subscribe": {
+        "ru": "⭐ Оформить подписку — {price} Stars в месяц",
+        "en": "⭐ Subscribe — {price} Stars a month",
+    },
+    "invoice_title": {"ru": "Подписка AI-репетитор", "en": "AI Tutor subscription"},
+    "invoice_description": {
+        "ru": "30 дней решений без ограничения по числу задач. Продлевается автоматически.",
+        "en": "30 days of solutions with no limit on the number of problems. Renews automatically.",
+    },
+    "sub_none": {
+        "ru": (
+            "Подписки пока нет.\n\n"
+            "С подпиской — решение задач без ограничения по числу, "
+            "за {price} ⭐ в месяц."
+        ),
+        "en": (
+            "You don't have a subscription yet.\n\n"
+            "With a subscription you can solve problems without a limit on their number, "
+            "for {price} ⭐ a month."
+        ),
+    },
+    "sub_active_renews": {
+        "ru": "⭐ Подписка активна до {date} и продлится автоматически.",
+        "en": "⭐ Subscription active until {date}, renews automatically.",
+    },
+    "sub_active_canceled": {
+        "ru": "⭐ Подписка активна до {date}. Автопродление отключено.",
+        "en": "⭐ Subscription active until {date}. Auto-renewal is off.",
+    },
+    "sub_active_short": {
+        "ru": "⭐ Подписка активна до {date}.",
+        "en": "⭐ Subscription active until {date}.",
+    },
+    "btn_cancel_renewal": {"ru": "Отключить автопродление", "en": "Turn off auto-renewal"},
+    "btn_resume_renewal": {"ru": "Включить автопродление", "en": "Turn on auto-renewal"},
+    "sub_change_failed": {
+        "ru": "Не получилось изменить подписку. Попробуй позже или напиши в /paysupport.",
+        "en": "Couldn't change the subscription. Try later or contact /paysupport.",
+    },
+    "sub_thanks": {
+        "ru": "Спасибо! 🎉 Подписка активна до {date}. Присылай задачи!",
+        "en": "Thank you! 🎉 Your subscription is active until {date}. Send your problems!",
+    },
+    "sub_renewed": {
+        "ru": "Подписка продлена до {date} ⭐",
+        "en": "Subscription renewed until {date} ⭐",
+    },
+    "checkout_invalid": {
+        "ru": "Этот счёт устарел. Открой /subscription и попробуй ещё раз.",
+        "en": "This invoice is out of date. Open /subscription and try again.",
+    },
+    "paysupport": {
+        "ru": (
+            "Вопросы по оплате и подписке: {contact}\n\n"
+            "Напиши, что случилось, и приложи дату платежа — разберёмся."
+        ),
+        "en": (
+            "Payment and subscription questions: {contact}\n\n"
+            "Describe what happened and include the payment date — we'll sort it out."
+        ),
+    },
+    "terms": {
+        "ru": (
+            "<b>Условия использования</b>\n\n"
+            "1. Бот решает и объясняет школьные задачи с помощью ИИ. Ответы могут "
+            "содержать ошибки — проверяй их, особенно перед контрольной.\n\n"
+            "2. Бесплатно — {free} решений в календарный месяц.\n\n"
+            "3. Подписка стоит {price} Telegram Stars за 30 дней и продлевается "
+            "автоматически. Отключить продление можно в /subscription или в настройках "
+            "Telegram; доступ сохранится до конца оплаченного периода.\n\n"
+            "4. Подписка снимает ограничение по числу задач, но действует разумный "
+            "месячный предел использования, чтобы сервис оставался доступным для всех.\n\n"
+            "5. Возврат Stars возможен по обращению в /paysupport, если сервис не работал "
+            "как описано.\n\n"
+            "6. Мы храним твой Telegram ID, имя пользователя, язык и статистику "
+            "использования. Фото и тексты задач передаются ИИ-провайдеру (Anthropic) "
+            "только для получения решения."
+        ),
+        "en": (
+            "<b>Terms of use</b>\n\n"
+            "1. The bot solves and explains school problems using AI. Answers may contain "
+            "mistakes — double-check them, especially before a test.\n\n"
+            "2. Free plan: {free} solutions per calendar month.\n\n"
+            "3. The subscription costs {price} Telegram Stars for 30 days and renews "
+            "automatically. You can turn off renewal in /subscription or in Telegram "
+            "settings; access stays until the end of the paid period.\n\n"
+            "4. The subscription removes the limit on the number of problems, but a fair "
+            "monthly usage limit applies so the service stays available to everyone.\n\n"
+            "5. Stars can be refunded on request via /paysupport if the service did not "
+            "work as described.\n\n"
+            "6. We store your Telegram ID, username, language and usage statistics. "
+            "Photos and problem texts are sent to the AI provider (Anthropic) only to "
+            "produce a solution."
+        ),
+    },
+    "cmd_subscription": {"ru": "Подписка", "en": "Subscription"},
+    "cmd_terms": {"ru": "Условия", "en": "Terms"},
+    "cmd_paysupport": {"ru": "Поддержка по оплате", "en": "Payment support"},
     "cmd_start": {"ru": "Начать", "en": "Start"},
     "cmd_lang": {"ru": "Язык / Language", "en": "Language / Язык"},
 }

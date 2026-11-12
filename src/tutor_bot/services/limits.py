@@ -63,13 +63,16 @@ class Limits:
         usage = await self.usage(user)
         return max(self._config.free_solutions - usage.solutions, 0)
 
-    async def check(self, user: User, *, new_solution: bool, subscribed: bool) -> None:
+    def is_subscribed(self, user: User) -> bool:
+        return user.subscription_until is not None and user.subscription_until > self._now()
+
+    async def check(self, user: User, *, new_solution: bool) -> None:
         """Бросает AccessDeniedError, если запрос к LLM делать нельзя.
 
         Уточнения (new_solution=False) не тратят решения, но упираются в бюджет.
         """
         usage = await self.usage(user)
-        if subscribed:
+        if self.is_subscribed(user):
             if usage.cost_usd >= self._config.paid_budget_usd:
                 raise AccessDeniedError(Denial.PAID_CAP_REACHED)
             return

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tutor_bot.services.assistant import Assistant
 from tutor_bot.services.limits import Limits, LimitsConfig
 from tutor_bot.services.solver import Solver
+from tutor_bot.services.subscriptions import Subscriptions
 from tutor_bot.services.throttle import Throttle
 from tutor_bot.services.tutor import Tutor
 from tutor_bot.services.users import register_user
@@ -52,16 +53,22 @@ class UserMiddleware(BaseMiddleware):
         return await handler(event, data)
 
 
-class AssistantMiddleware(BaseMiddleware):
-    """Собирает Assistant на сессии БД текущего апдейта и передаёт его как `assistant`."""
+class ServicesMiddleware(BaseMiddleware):
+    """Собирает сервисы на сессии БД текущего апдейта: `assistant`, `limits`, `subscriptions`."""
 
     def __init__(
-        self, solver: Solver, tutor: Tutor, throttle: Throttle, limits_config: LimitsConfig
+        self,
+        solver: Solver,
+        tutor: Tutor,
+        throttle: Throttle,
+        limits_config: LimitsConfig,
+        price_stars: int,
     ) -> None:
         self._solver = solver
         self._tutor = tutor
         self._throttle = throttle
         self._limits_config = limits_config
+        self._price_stars = price_stars
 
     async def __call__(
         self,
@@ -69,6 +76,9 @@ class AssistantMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: dict[str, Any],
     ) -> Any:
-        limits = Limits(data["session"], self._limits_config)
+        session = data["session"]
+        limits = Limits(session, self._limits_config)
+        data["limits"] = limits
         data["assistant"] = Assistant(limits, self._solver, self._tutor, self._throttle)
+        data["subscriptions"] = Subscriptions(session, self._price_stars)
         return await handler(event, data)

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -70,10 +70,10 @@ async def test_solutions_exhausted(limits: Limits, user: User) -> None:
         await limits.record(user, "solve", call("0.01"), task_id="t", charged=True)
 
     with pytest.raises(AccessDeniedError) as e:
-        await limits.check(user, new_solution=True, subscribed=False)
+        await limits.check(user, new_solution=True)
     assert e.value.reason is Denial.FREE_EXHAUSTED
     # уточнения решений не тратят — пока бюджет есть, они доступны
-    await limits.check(user, new_solution=False, subscribed=False)
+    await limits.check(user, new_solution=False)
 
 
 async def test_not_charged_calls_do_not_spend_solutions(limits: Limits, user: User) -> None:
@@ -88,35 +88,48 @@ async def test_budget_blocks_even_with_solutions_left(limits: Limits, user: User
 
     assert await limits.remaining_free_solutions(user) == 2
     with pytest.raises(AccessDeniedError):
-        await limits.check(user, new_solution=True, subscribed=False)
+        await limits.check(user, new_solution=True)
     with pytest.raises(AccessDeniedError):
-        await limits.check(user, new_solution=False, subscribed=False)
+        await limits.check(user, new_solution=False)
 
 
 async def test_new_month_resets_limits(limits: Limits, user: User, clock: Clock) -> None:
     for _ in range(2):
         await limits.record(user, "solve", call("0.60"), task_id="t", charged=True)
     with pytest.raises(AccessDeniedError):
-        await limits.check(user, new_solution=True, subscribed=False)
+        await limits.check(user, new_solution=True)
 
     clock.now = datetime(2026, 2, 1, 0, 0, tzinfo=UTC)
 
-    await limits.check(user, new_solution=True, subscribed=False)
+    await limits.check(user, new_solution=True)
     assert await limits.remaining_free_solutions(user) == 2
 
 
 async def test_subscriber_has_no_solution_limit_but_has_budget_cap(
-    limits: Limits, user: User
+    limits: Limits, user: User, clock: Clock
 ) -> None:
+    user.subscription_until = clock.now + timedelta(days=10)
     for _ in range(10):
         await limits.record(user, "solve", call("0.40"), task_id="t", charged=True)
-    await limits.check(user, new_solution=True, subscribed=True)
+    await limits.check(user, new_solution=True)
 
     await limits.record(user, "solve", call("1.00"), task_id="t", charged=True)
 
     with pytest.raises(AccessDeniedError) as e:
-        await limits.check(user, new_solution=True, subscribed=True)
+        await limits.check(user, new_solution=True)
     assert e.value.reason is Denial.PAID_CAP_REACHED
+
+
+async def test_expired_subscription_falls_back_to_free_limits(
+    limits: Limits, user: User, clock: Clock
+) -> None:
+    user.subscription_until = clock.now - timedelta(seconds=1)
+    for _ in range(2):
+        await limits.record(user, "solve", call("0.01"), task_id="t", charged=True)
+
+    with pytest.raises(AccessDeniedError) as e:
+        await limits.check(user, new_solution=True)
+    assert e.value.reason is Denial.FREE_EXHAUSTED
 
 
 async def test_cost_stored_without_precision_loss(

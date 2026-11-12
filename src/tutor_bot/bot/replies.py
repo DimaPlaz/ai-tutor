@@ -8,10 +8,13 @@ from aiogram.utils.chat_action import ChatActionSender
 
 from tutor_bot.bot.formatting import pack_messages, render_followup, render_solution
 from tutor_bot.bot.keyboards import task_keyboard
+from tutor_bot.bot.subscription_ui import paywall_keyboard
 from tutor_bot.bot.texts import t
+from tutor_bot.db.models import User
 from tutor_bot.llm.client import LLMError, LLMRefusalError, LLMTruncatedError
 from tutor_bot.services.limits import AccessDeniedError, Denial
 from tutor_bot.services.solver import Solution
+from tutor_bot.services.subscriptions import Subscriptions
 from tutor_bot.services.tasks import TaskContext
 from tutor_bot.services.throttle import BusyError, RateLimitedError
 from tutor_bot.services.tutor import FollowUpLimitError, FollowUpReply
@@ -41,19 +44,24 @@ def error_key(error: Exception) -> str:
 
 
 async def run_guarded[T](
-    message: Message, bot: Bot, lang: str, run: Callable[[], Awaitable[T]]
+    message: Message,
+    bot: Bot,
+    user: User,
+    subscriptions: Subscriptions,
+    run: Callable[[], Awaitable[T]],
 ) -> T | None:
     """Запрос к ассистенту с «печатает…». Ожидаемые ошибки — сообщением ученику, результат None."""
+    lang = user.language
     try:
         async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
             return await run()
-    except (
-        LLMError,
-        AccessDeniedError,
-        BusyError,
-        RateLimitedError,
-        FollowUpLimitError,
-    ) as e:
+    except AccessDeniedError as e:
+        keyboard = None
+        if e.reason is Denial.FREE_EXHAUSTED:
+            keyboard = await paywall_keyboard(bot, user, subscriptions.price_stars)
+        await message.answer(t(error_key(e), lang), reply_markup=keyboard)
+        return None
+    except (LLMError, BusyError, RateLimitedError, FollowUpLimitError) as e:
         await message.answer(t(error_key(e), lang))
         return None
 

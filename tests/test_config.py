@@ -13,6 +13,8 @@ OPTIONAL_ENV = (
     "LLM_MODEL",
     "LLM_EFFORT",
     "LLM_FAKE",
+    "TG_TEST_ENV",
+    "TG_TEST_BOT_TOKEN",
 )
 
 
@@ -24,6 +26,7 @@ def _isolate_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("TG_BOT_TOKEN", "x")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "y")
+    monkeypatch.setenv("SUPPORT_CONTACT", "@support")
 
 
 def test_admin_ids_parsed_from_comma_separated(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -70,3 +73,17 @@ def test_fake_mode_works_without_api_key(monkeypatch: pytest.MonkeyPatch) -> Non
 
     assert settings.llm_fake
     assert settings.anthropic_api_key is None
+
+
+def test_test_env_uses_test_bot_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TG_TEST_ENV", "true")
+    monkeypatch.setenv("TG_TEST_BOT_TOKEN", "test-token")
+
+    assert Settings().bot_token == "test-token"  # pyright: ignore[reportCallIssue]
+
+
+def test_test_env_requires_test_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TG_TEST_ENV", "true")
+
+    with pytest.raises(ValidationError, match="TG_TEST_BOT_TOKEN"):
+        Settings()  # pyright: ignore[reportCallIssue]

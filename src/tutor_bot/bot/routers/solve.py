@@ -11,6 +11,7 @@ from tutor_bot.db.models import User
 from tutor_bot.llm.client import ImageInput
 from tutor_bot.services.assistant import Assistant
 from tutor_bot.services.solver import SolutionStatus
+from tutor_bot.services.subscriptions import Subscriptions
 from tutor_bot.services.tasks import TaskContext
 from tutor_bot.services.tutor import NewProblemDetected
 
@@ -19,26 +20,40 @@ router = Router(name="solve")
 
 @router.message(F.photo)
 async def solve_photo(
-    message: Message, bot: Bot, user: User, state: FSMContext, assistant: Assistant
+    message: Message,
+    bot: Bot,
+    user: User,
+    state: FSMContext,
+    assistant: Assistant,
+    subscriptions: Subscriptions,
 ) -> None:
     assert message.photo is not None  # гарантирует фильтр F.photo
     # Фото — всегда новая задача. Последний размер в списке — самый крупный
     buffer = BytesIO()
     await bot.download(message.photo[-1], destination=buffer)
     image = ImageInput(data=buffer.getvalue())
-    await solve_new_task(message, bot, user, state, assistant, message.caption, image)
+    await solve_new_task(
+        message, bot, user, state, assistant, subscriptions, message.caption, image
+    )
 
 
 @router.message(F.text & ~F.text.startswith("/"))
 async def handle_text(
-    message: Message, bot: Bot, user: User, state: FSMContext, assistant: Assistant
+    message: Message,
+    bot: Bot,
+    user: User,
+    state: FSMContext,
+    assistant: Assistant,
+    subscriptions: Subscriptions,
 ) -> None:
     assert message.text is not None
     task = await load_task(state)
     if task is None or task.followups_left == 0:
-        await solve_new_task(message, bot, user, state, assistant, message.text, None)
+        await solve_new_task(
+            message, bot, user, state, assistant, subscriptions, message.text, None
+        )
         return
-    await answer_question(message, bot, user, state, assistant, task, message.text)
+    await answer_question(message, bot, user, state, assistant, subscriptions, task, message.text)
 
 
 async def answer_question(
@@ -47,17 +62,18 @@ async def answer_question(
     user: User,
     state: FSMContext,
     assistant: Assistant,
+    subscriptions: Subscriptions,
     task: TaskContext,
     question: str,
 ) -> None:
     """Текст при открытой задаче — уточнение. Если это другая задача, решаем её как новую."""
     result = await run_guarded(
-        message, bot, user.language, lambda: assistant.answer_question(user, task, question)
+        message, bot, user, subscriptions, lambda: assistant.answer_question(user, task, question)
     )
     if result is None:
         return
     if isinstance(result, NewProblemDetected):
-        await solve_new_task(message, bot, user, state, assistant, question, None)
+        await solve_new_task(message, bot, user, state, assistant, subscriptions, question, None)
         return
     await save_task(state, result.task)
     await send_followup(message, result, user.language)
@@ -69,11 +85,14 @@ async def solve_new_task(
     user: User,
     state: FSMContext,
     assistant: Assistant,
+    subscriptions: Subscriptions,
     text: str | None,
     image: ImageInput | None,
 ) -> None:
     lang = user.language
-    result = await run_guarded(message, bot, lang, lambda: assistant.solve(user, text, image))
+    result = await run_guarded(
+        message, bot, user, subscriptions, lambda: assistant.solve(user, text, image)
+    )
     if result is None:
         return
     if result.solution.status is SolutionStatus.UNREADABLE:

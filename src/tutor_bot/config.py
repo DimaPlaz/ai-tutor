@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     tg_bot_token: SecretStr
+    # Тестовая среда Telegram (бесплатные Stars): отдельный бот от тестового @BotFather
+    tg_test_env: bool = False
+    tg_test_bot_token: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
     # Тестовый режим: заготовленные ответы вместо Claude API, ключ не нужен
     llm_fake: bool = False
@@ -18,7 +21,10 @@ class Settings(BaseSettings):
     free_solutions_per_month: int = 15
     # Скрытые потолки расходов на LLM за календарный месяц (UTC), в $
     free_budget_usd: Decimal = Decimal("0.90")
-    paid_budget_usd: Decimal = Decimal("10")
+    paid_budget_usd: Decimal = Decimal("2")
+    subscription_price_stars: int = 250
+    # Контакт для /paysupport, например @username
+    support_contact: str
     rate_limit_per_minute: int = 6
     database_url: str = "postgresql+asyncpg://tutor:tutor@localhost:5432/tutor"
     redis_url: str = "redis://localhost:6379/0"
@@ -37,7 +43,15 @@ class Settings(BaseSettings):
     def _require_api_key(self) -> Settings:
         if not self.llm_fake and self.anthropic_api_key is None:
             raise ValueError("ANTHROPIC_API_KEY is required unless LLM_FAKE=true")
+        if self.tg_test_env and self.tg_test_bot_token is None:
+            raise ValueError("TG_TEST_BOT_TOKEN is required when TG_TEST_ENV=true")
         return self
+
+    @property
+    def bot_token(self) -> str:
+        token = self.tg_test_bot_token if self.tg_test_env else self.tg_bot_token
+        assert token is not None  # проверено в _require_api_key
+        return token.get_secret_value()
 
 
 def get_settings() -> Settings:

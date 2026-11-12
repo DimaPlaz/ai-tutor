@@ -53,3 +53,39 @@ def lang_keyboard() -> InlineKeyboardMarkup:
             ]
         ]
     )
+
+
+class SubscriptionAction(CallbackData, prefix="sub"):
+    # Только управление автопродлением; начисление — исключительно по successful_payment
+    action: str
+
+
+CANCEL_RENEWAL = "cancel"
+RESUME_RENEWAL = "resume"
+
+
+def subscribe_keyboard(invoice_link: str, lang: str, price: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("btn_subscribe", lang).format(price=price), url=invoice_link
+                )
+            ]
+        ]
+    )
+
+
+def renewal_keyboard(lang: str, auto_renew: bool) -> InlineKeyboardMarkup:
+    action = CANCEL_RENEWAL if auto_renew else RESUME_RENEWAL
+    key = "btn_cancel_renewal" if auto_renew else "btn_resume_renewal"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(key, lang),
+                    callback_data=SubscriptionAction(action=action).pack(),
+                )
+            ]
+        ]
+    )

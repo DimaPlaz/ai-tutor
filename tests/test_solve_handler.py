@@ -1,5 +1,6 @@
 """Сценарии бота целиком: Telegram замокан, LLM — тестовый режим, FSM — в памяти, БД настоящая."""
 
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -25,6 +26,7 @@ from tutor_bot.llm.fake import FakeLLMClient
 from tutor_bot.services.assistant import Assistant
 from tutor_bot.services.limits import Limits, LimitsConfig
 from tutor_bot.services.solver import Solver
+from tutor_bot.services.subscriptions import Subscriptions
 from tutor_bot.services.tasks import MAX_FOLLOWUPS
 from tutor_bot.services.throttle import Throttle
 from tutor_bot.services.tutor import Tutor
@@ -62,6 +64,7 @@ def bot() -> MagicMock:
     bot = MagicMock()
     bot.download = AsyncMock()
     bot.send_chat_action = AsyncMock()
+    bot.create_invoice_link = AsyncMock(return_value="https://t.me/$invoice")
     return bot
 
 
@@ -98,25 +101,39 @@ def last_keyboard_actions(message: MagicMock) -> list[str]:
 class Chat:
     """Ученик в чате с ботом: всё, что нужно хендлерам, в одном месте."""
 
-    def __init__(self, bot: MagicMock, user: User, state: FSMContext, assistant: Assistant):
+    def __init__(
+        self,
+        bot: MagicMock,
+        user: User,
+        state: FSMContext,
+        assistant: Assistant,
+        subscriptions: Subscriptions,
+    ):
         self.bot = bot
         self.user = user
         self.state = state
         self.assistant = assistant
+        self.subscriptions = subscriptions
 
     async def send(self, text: str) -> MagicMock:
         message = make_message(text=text)
         if await self.state.get_state() == TaskStates.waiting_answer.state:
-            await on_student_answer(message, self.bot, self.user, self.state, self.assistant)
+            await on_student_answer(
+                message, self.bot, self.user, self.state, self.assistant, self.subscriptions
+            )
         else:
-            await handle_text(message, self.bot, self.user, self.state, self.assistant)
+            await handle_text(
+                message, self.bot, self.user, self.state, self.assistant, self.subscriptions
+            )
         return message
 
     async def press(self, action: str, task_id: str) -> tuple[MagicMock, MagicMock]:
         message = make_message()
         data = TaskAction(action=action, task_id=task_id)
         callback = make_callback(data, message)
-        await on_task_action(callback, data, self.bot, self.user, self.state, self.assistant)
+        await on_task_action(
+            callback, data, self.bot, self.user, self.state, self.assistant, self.subscriptions
+        )
         return callback, message
 
     async def task_id(self) -> str:
@@ -126,8 +143,19 @@ class Chat:
 
 
 @pytest.fixture
-def chat(bot: MagicMock, user: User, state: FSMContext, assistant: Assistant) -> Chat:
-    return Chat(bot, user, state, assistant)
+def subscriptions(session: AsyncSession) -> Subscriptions:
+    return Subscriptions(session, price_stars=250)
+
+
+@pytest.fixture
+def chat(
+    bot: MagicMock,
+    user: User,
+    state: FSMContext,
+    assistant: Assistant,
+    subscriptions: Subscriptions,
+) -> Chat:
+    return Chat(bot, user, state, assistant, subscriptions)
 
 
 async def test_text_problem_gets_solution_with_buttons(chat: Chat) -> None:
@@ -146,7 +174,7 @@ async def test_photo_is_downloaded_and_starts_new_task(chat: Chat) -> None:
     message = make_message()
     message.photo = [MagicMock(name="small"), MagicMock(name="large")]
 
-    await solve_photo(message, chat.bot, chat.user, chat.state, chat.assistant)
+    await solve_photo(message, chat.bot, chat.user, chat.state, chat.assistant, chat.subscriptions)
 
     assert chat.bot.download.await_args.args[0] is message.photo[-1]
     assert await chat.task_id() != old_task_id
@@ -270,12 +298,17 @@ async def test_lang_switch_changes_next_answers(chat: Chat, session: AsyncSessio
 
 
 async def test_paywall_after_free_solutions(
-    bot: MagicMock, user: User, state: FSMContext, session: AsyncSession, redis: Redis
+    bot: MagicMock,
+    user: User,
+    state: FSMContext,
+    session: AsyncSession,
+    redis: Redis,
+    subscriptions: Subscriptions,
 ) -> None:
     config = LimitsConfig(
         free_solutions=2, free_budget_usd=Decimal("100"), paid_budget_usd=Decimal("100")
     )
-    chat = Chat(bot, user, state, make_assistant(session, redis, config))
+    chat = Chat(bot, user, state, make_assistant(session, redis, config), subscriptions)
 
     first = await chat.send("2x + 3 = 11")
     await chat.press(NEW, await chat.task_id())
@@ -286,15 +319,27 @@ async def test_paywall_after_free_solutions(
     assert "Осталось бесплатных решений в этом месяце: 1" in answers(first)[0]
     assert "Осталось бесплатных решений в этом месяце: 0" in answers(second)[0]
     assert answers(third) == [t("paywall_free", "ru")]
+    keyboard = third.answer.await_args.kwargs["reply_markup"]
+    [[button]] = keyboard.inline_keyboard
+    assert button.url == "https://t.me/$invoice"
+    invoice = bot.create_invoice_link.await_args.kwargs
+    assert invoice["currency"] == "XTR"
+    assert invoice["prices"][0].amount == 250
+    assert invoice["subscription_period"] == 30 * 24 * 3600
 
 
 async def test_followups_still_work_after_last_free_solution(
-    bot: MagicMock, user: User, state: FSMContext, session: AsyncSession, redis: Redis
+    bot: MagicMock,
+    user: User,
+    state: FSMContext,
+    session: AsyncSession,
+    redis: Redis,
+    subscriptions: Subscriptions,
 ) -> None:
     config = LimitsConfig(
         free_solutions=1, free_budget_usd=Decimal("100"), paid_budget_usd=Decimal("100")
     )
-    chat = Chat(bot, user, state, make_assistant(session, redis, config))
+    chat = Chat(bot, user, state, make_assistant(session, redis, config), subscriptions)
     await chat.send("2x + 3 = 11")
 
     _, message = await chat.press(SIMPLER, await chat.task_id())
@@ -303,13 +348,18 @@ async def test_followups_still_work_after_last_free_solution(
 
 
 async def test_budget_exhausted_blocks_followups(
-    bot: MagicMock, user: User, state: FSMContext, session: AsyncSession, redis: Redis
+    bot: MagicMock,
+    user: User,
+    state: FSMContext,
+    session: AsyncSession,
+    redis: Redis,
+    subscriptions: Subscriptions,
 ) -> None:
     # Одно решение в тестовом режиме стоит $0.038 — после него бюджет $0.03 исчерпан
     config = LimitsConfig(
         free_solutions=15, free_budget_usd=Decimal("0.03"), paid_budget_usd=Decimal("100")
     )
-    chat = Chat(bot, user, state, make_assistant(session, redis, config))
+    chat = Chat(bot, user, state, make_assistant(session, redis, config), subscriptions)
     await chat.send("2x + 3 = 11")
 
     _, message = await chat.press(SIMPLER, await chat.task_id())
@@ -332,3 +382,25 @@ async def test_start_shows_free_solutions_left(chat: Chat) -> None:
     await cmd_start(message, chat.user, chat.assistant, free_total=15)
 
     assert answers(message)[0].endswith("осталось бесплатных решений: 14 из 15.")
+
+
+async def test_subscriber_not_limited_by_solution_count(
+    bot: MagicMock,
+    user: User,
+    state: FSMContext,
+    session: AsyncSession,
+    redis: Redis,
+    subscriptions: Subscriptions,
+) -> None:
+    config = LimitsConfig(
+        free_solutions=1, free_budget_usd=Decimal("100"), paid_budget_usd=Decimal("100")
+    )
+    user.subscription_until = datetime.now(UTC) + timedelta(days=10)
+    chat = Chat(bot, user, state, make_assistant(session, redis, config), subscriptions)
+
+    await chat.send("2x + 3 = 11")
+    await chat.press(NEW, await chat.task_id())
+    second = await chat.send("2x + 3 = 11")
+
+    assert "<b>✅ Ответ:</b> x = 4" in answers(second)[0]
+    assert "Осталось бесплатных" not in answers(second)[0]

@@ -4,13 +4,15 @@ import logging
 import anthropic
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.client.telegram import PRODUCTION, TEST
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.types import BotCommand
 from redis.asyncio import Redis
 
-from tutor_bot.bot.middlewares import AssistantMiddleware, DbSessionMiddleware, UserMiddleware
-from tutor_bot.bot.routers import lang, solve, start, task
+from tutor_bot.bot.middlewares import DbSessionMiddleware, ServicesMiddleware, UserMiddleware
+from tutor_bot.bot.routers import lang, payments, solve, start, task
 from tutor_bot.bot.task_store import TASK_TTL
 from tutor_bot.bot.texts import t
 from tutor_bot.config import get_settings
@@ -33,8 +35,11 @@ async def main() -> None:
     engine = create_engine(settings.database_url)
     redis = Redis.from_url(settings.redis_url)
     storage = RedisStorage(redis, state_ttl=TASK_TTL, data_ttl=TASK_TTL)
+    if settings.tg_test_env:
+        logger.warning("TG_TEST_ENV=true: using Telegram test environment")
     bot = Bot(
-        token=settings.tg_bot_token.get_secret_value(),
+        token=settings.bot_token,
+        session=AiohttpSession(api=TEST if settings.tg_test_env else PRODUCTION),
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
 
@@ -62,12 +67,24 @@ async def main() -> None:
     )
     throttle = Throttle(redis, per_minute=settings.rate_limit_per_minute)
 
-    dp = Dispatcher(storage=storage, free_total=settings.free_solutions_per_month)
+    dp = Dispatcher(
+        storage=storage,
+        free_total=settings.free_solutions_per_month,
+        support_contact=settings.support_contact,
+    )
     dp.update.middleware(DbSessionMiddleware(create_session_factory(engine)))
     dp.update.middleware(UserMiddleware())
-    dp.update.middleware(AssistantMiddleware(Solver(llm), Tutor(llm), throttle, limits_config))
+    dp.update.middleware(
+        ServicesMiddleware(
+            Solver(llm),
+            Tutor(llm),
+            throttle,
+            limits_config,
+            price_stars=settings.subscription_price_stars,
+        )
+    )
     # Порядок важен: команды и ожидание ответа раньше общего обработчика текста
-    dp.include_routers(start.router, lang.router, task.router, solve.router)
+    dp.include_routers(start.router, lang.router, payments.router, task.router, solve.router)
 
     await set_commands(bot)
 
@@ -87,6 +104,9 @@ async def set_commands(bot: Bot) -> None:
         commands = [
             BotCommand(command="start", description=t("cmd_start", language)),
             BotCommand(command="lang", description=t("cmd_lang", language)),
+            BotCommand(command="subscription", description=t("cmd_subscription", language)),
+            BotCommand(command="terms", description=t("cmd_terms", language)),
+            BotCommand(command="paysupport", description=t("cmd_paysupport", language)),
         ]
         # Английский — меню по умолчанию для всех остальных языков
         code = None if language == "en" else language

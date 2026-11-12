@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling>=1.33"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tutor-bot"
+version = "0.1.0"
+description = "Telegram AI tutor: solves school problems from photos and text"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "aiogram>=3.31,<4",
+    "sqlalchemy[asyncio]>=2.1,<2.2",
+    "asyncpg>=0.32,<0.33",
+    "alembic>=1.20,<2",
+    "redis>=8.1,<9",
+    "pydantic-settings>=2.16,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.2,<10",
+    "pytest-asyncio>=1.4,<2",
+    "ruff>=0.17,<0.18",
+    "pyright>=1.1.414",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tutor_bot"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "ASYNC", "SIM", "RUF"]
+# Кириллица в текстах и комментариях — норма для проекта
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.pyright]
+pythonVersion = "3.14"
+include = ["src", "tests", "migrations"]
+venvPath = "."
+venv = "venv"
+typeCheckingMode = "standard"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"

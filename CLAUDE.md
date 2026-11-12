@@ -11,7 +11,7 @@ Telegram-бот: решает школьные задачи по фото/тек
 - Если в ТЗ чего-то не хватает или есть противоречие — спроси, не додумывай.
 
 ## Стек
-Python 3.12, uv, aiogram 3, PostgreSQL + SQLAlchemy 2 (async) + Alembic, Redis, Anthropic SDK, pydantic-settings, pytest, ruff, pyright, Docker Compose.
+Python 3.14, pip + venv (зависимости в `pyproject.toml`), aiogram 3, PostgreSQL + SQLAlchemy 2 (async) + Alembic, Redis, Anthropic SDK, pydantic-settings, pytest, ruff, pyright, Docker Compose.
 
 ## Структура
 ```
@@ -29,12 +29,13 @@ tests/
 
 ## Команды
 ```bash
-uv sync
+python3.14 -m venv venv && source venv/bin/activate
+pip install -e ".[dev]"
 docker compose up -d db redis
-uv run alembic upgrade head
-uv run python -m tutor_bot.main
-uv run pytest
-uv run ruff check . && uv run ruff format . && uv run pyright
+alembic upgrade head
+python -m tutor_bot.main
+pytest
+ruff check . && ruff format . && pyright
 ```
 
 ## Стиль кода

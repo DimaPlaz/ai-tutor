@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     # Тестовый режим: заготовленные ответы вместо Claude API, ключ не нужен
     llm_fake: bool = False
+    # openai — Claude через OpenAI-совместимый прокси (LLM_BASE_URL), ключ тот же ANTHROPIC_API_KEY
+    llm_provider: Literal["anthropic", "openai"] = "anthropic"
+    llm_base_url: str | None = None
     llm_model: str = "claude-opus-5-5"
     llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
     llm_max_tokens: int = 16000
@@ -43,6 +46,8 @@ class Settings(BaseSettings):
     def _require_api_key(self) -> Settings:
         if not self.llm_fake and self.anthropic_api_key is None:
             raise ValueError("ANTHROPIC_API_KEY is required unless LLM_FAKE=true")
+        if self.llm_provider == "openai" and self.llm_base_url is None:
+            raise ValueError("LLM_BASE_URL is required when LLM_PROVIDER=openai")
         if self.tg_test_env and self.tg_test_bot_token is None:
             raise ValueError("TG_TEST_BOT_TOKEN is required when TG_TEST_ENV=true")
         return self

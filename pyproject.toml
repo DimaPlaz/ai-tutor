@@ -16,6 +16,7 @@ dependencies = [
     "redis>=8.1,<9",
     "pydantic-settings>=2.16,<3",
     "anthropic>=2.8,<3",
+    "openai>=3.50,<4",
 ]
 
 [project.optional-dependencies]

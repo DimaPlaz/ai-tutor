@@ -42,3 +42,9 @@ def test_total_cost_sums_fallback_attempts() -> None:
 def test_unknown_model_raises() -> None:
     with pytest.raises(UnknownModelPriceError):
         usage_cost(TokenUsage("claude-unknown", input_tokens=1, output_tokens=1))
+
+
+def test_proxy_model_has_own_price() -> None:
+    usage = TokenUsage("anthropic/claude-opus-5-5", input_tokens=1_000_000, output_tokens=1_000_000)
+
+    assert usage_cost(usage) == Decimal("36")

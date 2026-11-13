@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 import anthropic
+import openai
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -20,6 +21,7 @@ from tutor_bot.config import get_settings
 from tutor_bot.db.session import create_engine, create_session_factory
 from tutor_bot.llm.client import JsonCompleter, LLMClient
 from tutor_bot.llm.fake import FakeLLMClient
+from tutor_bot.llm.openai_compat import OpenAICompatClient
 from tutor_bot.logging import setup_logging
 from tutor_bot.services.limits import LimitsConfig
 from tutor_bot.services.solver import Solver
@@ -44,16 +46,30 @@ async def main() -> None:
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
 
-    anthropic_client: anthropic.AsyncAnthropic | None = None
+    sdk_client: anthropic.AsyncAnthropic | openai.AsyncOpenAI | None = None
     llm: JsonCompleter
     if settings.llm_fake:
         logger.warning("LLM_FAKE=true: answers are canned, Claude API is not called")
         llm = FakeLLMClient()
+    elif settings.llm_provider == "openai":
+        assert settings.anthropic_api_key is not None  # проверено в Settings
+        logger.warning("LLM_PROVIDER=openai: Claude via OpenAI-compatible proxy")
+        sdk_client = openai.AsyncOpenAI(
+            api_key=settings.anthropic_api_key.get_secret_value(),
+            base_url=settings.llm_base_url,
+        )
+        llm = OpenAICompatClient(
+            sdk_client,
+            model=settings.llm_model,
+            effort=settings.llm_effort,
+            max_tokens=settings.llm_max_tokens,
+        )
     else:
         assert settings.anthropic_api_key is not None  # проверено в Settings
         anthropic_client = anthropic.AsyncAnthropic(
             api_key=settings.anthropic_api_key.get_secret_value()
         )
+        sdk_client = anthropic_client
         llm = LLMClient(
             anthropic_client,
             model=settings.llm_model,
@@ -97,8 +113,8 @@ async def main() -> None:
         await dp.start_polling(bot)
     finally:
         await bot.session.close()
-        if anthropic_client is not None:
-            await anthropic_client.close()
+        if sdk_client is not None:
+            await sdk_client.close()
         await storage.close()  # закрывает и общий клиент Redis
         await engine.dispose()
 

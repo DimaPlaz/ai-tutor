@@ -25,6 +25,9 @@ PRICES: dict[str, ModelPrice] = {
     "claude-opus-4-8": ModelPrice(Decimal("5"), Decimal("25"), Decimal("0.50")),
     "claude-sonnet-5-5": ModelPrice(Decimal("2"), Decimal("10"), Decimal("0.20")),
     "claude-haiku-5-5": ModelPrice(Decimal("0.10"), Decimal("0.50"), Decimal("0.01")),
+    # OpenAI-совместимый прокси Hostman (LLM_PROVIDER=openai): свои цены, скидку на кэш
+    # не публикуют — считаем кэш по цене обычного входа
+    "anthropic/claude-opus-5-5": ModelPrice(Decimal("6"), Decimal("30"), Decimal("6")),
 }
 
 

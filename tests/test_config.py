@@ -13,6 +13,8 @@ OPTIONAL_ENV = (
     "LLM_MODEL",
     "LLM_EFFORT",
     "LLM_FAKE",
+    "LLM_PROVIDER",
+    "LLM_BASE_URL",
     "TG_TEST_ENV",
     "TG_TEST_BOT_TOKEN",
 )
@@ -56,6 +58,17 @@ def test_llm_defaults() -> None:
 
     assert settings.llm_model == "claude-opus-5-5"
     assert settings.llm_effort == "medium"
+    assert settings.llm_provider == "anthropic"
+
+
+def test_openai_provider_requires_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+
+    with pytest.raises(ValidationError, match="LLM_BASE_URL"):
+        Settings()  # pyright: ignore[reportCallIssue]
+
+    monkeypatch.setenv("LLM_BASE_URL", "https://proxy.test/v1")
+    assert Settings().llm_base_url == "https://proxy.test/v1"  # pyright: ignore[reportCallIssue]
 
 
 def test_api_key_required_without_fake_mode(monkeypatch: pytest.MonkeyPatch) -> None:

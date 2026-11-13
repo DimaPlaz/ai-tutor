@@ -59,7 +59,7 @@ The aiogram handlers are thin: they parse the input and send the reply. Everythi
 
 ## Tech stack
 
-Python 3.14 · aiogram 3 · PostgreSQL + SQLAlchemy 2 (async) + Alembic · Redis · Anthropic SDK · pydantic-settings · pytest · ruff · pyright · Docker Compose · GitHub Actions
+Python 3.14 · aiogram 3 · PostgreSQL + SQLAlchemy 2 (async) + Alembic · Redis · Anthropic SDK (OpenAI SDK for proxy mode) · pydantic-settings · pytest · ruff · pyright · Docker Compose · GitHub Actions
 
 ```
 src/tutor_bot/
@@ -108,8 +108,10 @@ All settings come from `.env`. See [`.env.example`](.env.example) for the full l
 |---|---|---|
 | `TG_BOT_TOKEN` | — | Bot token from @BotFather |
 | `TG_TEST_ENV`, `TG_TEST_BOT_TOKEN` | `false` | Use the Telegram test environment (for payment testing) |
-| `ANTHROPIC_API_KEY` | — | Claude API key (not needed when `LLM_FAKE=true`) |
-| `LLM_MODEL` | `claude-opus-5-5` | Claude model |
+| `ANTHROPIC_API_KEY` | — | Claude API key, or the proxy key with `LLM_PROVIDER=openai` (not needed when `LLM_FAKE=true`) |
+| `LLM_PROVIDER` | `anthropic` | `anthropic` (Claude API) or `openai` (Claude via an OpenAI-compatible proxy) |
+| `LLM_BASE_URL` | — | Proxy URL, required when `LLM_PROVIDER=openai` |
+| `LLM_MODEL` | `claude-opus-5-5` | Claude model (as the proxy names it, e.g. `anthropic/claude-opus-5-5`) |
 | `LLM_EFFORT` | `medium` | Reasoning effort: `low` … `max` |
 | `LLM_FAKE` | `false` | Canned answers, no API calls |
 | `FREE_SOLUTIONS_PER_MONTH` | `15` | Free solutions per calendar month (UTC) |
